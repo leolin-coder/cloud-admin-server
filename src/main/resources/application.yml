@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: admin-server
+  profiles:
+    active:
+    - secure
+server:
+    port: 8300
+
+# tag::configuration-eureka[]
+eureka:   #<1>
+  instance:
+    leaseRenewalIntervalInSeconds: 10
+    health-check-url-path: /actuator/health
+    metadata-map:
+      startup: ${random.int}    #needed to trigger info and endpoint update after restart
+  client:
+    registryFetchIntervalSeconds: 5
+    serviceUrl:
+      defaultZone: ${EUREKA_SERVICE_URL:http://root:test@127.0.0.1:8200}/eureka/
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"  #<2>
+  endpoint:
+    health:
+      show-details: ALWAYS
+# end::configuration-eureka[]
+
+---
+spring:
+  profiles: insecure
+
+---
+spring:
+  profiles: secure
+  security:
+    user:
+      name: "root"
+      password: "test"
+#      roles: "SUPERUSER"
+eureka:
+  instance:
+    metadata-map:
+      user.name: "root"         #These two are needed so that the server
+      user.password: "test" #can access the protected client endpoints

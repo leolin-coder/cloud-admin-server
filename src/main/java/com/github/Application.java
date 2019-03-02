@@ -1,41 +1,86 @@
 package com.github;
 
+import de.codecentric.boot.admin.server.config.AdminServerProperties;
 import de.codecentric.boot.admin.server.config.EnableAdminServer;
-import org.springframework.beans.factory.annotation.Configurable;
 import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
-import org.springframework.cloud.client.loadbalancer.LoadBalanced;
-import org.springframework.cloud.netflix.eureka.EnableEurekaClient;
-import org.springframework.cloud.netflix.hystrix.EnableHystrix;
-import org.springframework.cloud.openfeign.EnableFeignClients;
-import org.springframework.context.annotation.Bean;
-import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 
 @SpringBootApplication
 @EnableDiscoveryClient  // springcloud 客户端
-//@EnableFeignClients    // feign 客户端特殊标识，默认集成ribbon。是一个http客户端
-//@EnableHystrix     // hystrix 断路器  可以和feign配合使用，则@EnableFeignClients @EnableHystrix2个注解都得加上
 @EnableAdminServer  // adminServer
 public class Application {
-
-    /**
-     * 目前还是只能放在这里。   默认使用ribbon集群负载的时候使用
-     * @return
-     */
-//    @Bean
-//    @LoadBalanced
-//    RestTemplate restTemplate() {
-//        return new RestTemplate();
-//    }
-
-
 	public static void main(String[] args) {
 		SpringApplication.run(Application.class, args);
 	}
 
+//	@EnableWebSecurity
+//	static class WebSecurityConfig extends WebSecurityConfigurerAdapter {
+//		@Override
+//		protected void configure(HttpSecurity http) throws Exception {
+//			http.csrf().ignoringAntMatchers("/actuator/**");
+//			super.configure(http);
+//		}
+//	}
+
+	@Profile("insecure")
+	@Configuration
+	public static class SecurityPermitAllConfig extends WebSecurityConfigurerAdapter {
+		private final String adminContextPath;
+
+		public SecurityPermitAllConfig(AdminServerProperties adminServerProperties) {
+			this.adminContextPath = adminServerProperties.getContextPath();
+		}
+
+		@Override
+		protected void configure(HttpSecurity http) throws Exception {
+			http.authorizeRequests()
+					.anyRequest()
+					.permitAll()
+					.and()
+					.csrf()
+					.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+					.ignoringAntMatchers(adminContextPath + "/instances", adminContextPath + "/actuator/**");
+		}
+	}
+
+	@Profile("secure")
+	@Configuration
+	public static class SecuritySecureConfig extends WebSecurityConfigurerAdapter {
+		private final String adminContextPath;
+
+		public SecuritySecureConfig(AdminServerProperties adminServerProperties) {
+			this.adminContextPath = adminServerProperties.getContextPath();
+		}
+
+		@Override
+		protected void configure(HttpSecurity http) throws Exception {
+			// @formatter:off
+			SavedRequestAwareAuthenticationSuccessHandler successHandler = new SavedRequestAwareAuthenticationSuccessHandler();
+			successHandler.setTargetUrlParameter("redirectTo");
+			successHandler.setDefaultTargetUrl(adminContextPath + "/");
+
+			http.authorizeRequests()
+					.antMatchers(adminContextPath + "/assets/**").permitAll()
+					.antMatchers(adminContextPath + "/login").permitAll()
+					.anyRequest().authenticated()
+					.and()
+					.formLogin().loginPage(adminContextPath + "/login").successHandler(successHandler).and()
+					.logout().logoutUrl(adminContextPath + "/logout").and()
+					.httpBasic().and()
+					.csrf()
+					.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+					.ignoringAntMatchers(adminContextPath + "/instances", adminContextPath + "/actuator/**", adminContextPath + "/logout");
+			// @formatter:on   添加允许账号退出放行。
+
+		}
+	}
 }
 
