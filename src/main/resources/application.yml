@@ -17,7 +17,7 @@ eureka:   #<1>
   client:
     registryFetchIntervalSeconds: 5
     serviceUrl:
-      defaultZone: ${EUREKA_SERVICE_URL:http://root:test@127.0.0.1:8200}/eureka/
+      defaultZone: ${EUREKA_SERVICE_URL:http://${spring.security.user.name}:${spring.security.user.password}@127.0.0.1:8400}/eureka/
 
 management:
   endpoints:
@@ -36,13 +36,28 @@ spring:
 ---
 spring:
   profiles: secure
+  mail:
+    host: smtp.163.com
+    username: leolinsy@163.com
+    password: 111111
+    properties:
+      mail.debug: false
+      mail.stmp.auth: true
+  boot:
+    admin:
+      notify:
+        mail:
+          to: 1111@111.com
+          cc: leolinsy@163.com
+          from: leolinsy@163.com
   security:
     user:
-      name: "root"
-      password: "test"
+      name: root
+      password: cx
 #      roles: "SUPERUSER"
 eureka:
   instance:
     metadata-map:
-      user.name: "root"         #These two are needed so that the server
-      user.password: "test" #can access the protected client endpoints
+      user.name: root        #These two are needed so that the server
+      user.password: cx #can access the protected client endpoints
+

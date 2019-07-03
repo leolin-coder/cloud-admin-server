@@ -138,7 +138,7 @@
         </filter>
     </appender>
 
-    <root level="DEBUG">
+    <root level="INFO">
         <appender-ref ref="CONSOLE"/>
     </root>
 </configuration>
